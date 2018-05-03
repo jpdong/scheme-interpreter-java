@@ -1,11 +1,25 @@
 package com.dong.interpreter;
 
 
-import java.io.InputStream;
+import com.dong.interpreter.data.SchemeData;
 
-import static com.dong.interpreter.SchemeObject.SchemeType.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PushbackInputStream;
+import java.util.HashMap;
+
+import static com.dong.interpreter.data.SchemeType.Type.*;
 
 public class Interpreter {
+
+    static class EnvFrame {
+        HashMap<String, SchemeObject> frameMap;
+        EnvFrame nextFrame;
+
+        public EnvFrame() {
+            this.frameMap = new HashMap<>();
+        }
+    }
 
     SchemeObject emptyList;
     SchemeObject falses;
@@ -25,16 +39,18 @@ public class Interpreter {
     SchemeObject orSymbol;
     SchemeObject eofObject;
     SchemeObject emptyEnvironment;
-    SchemeObject globalEnvironment;
+    EnvFrame globalEnvironment;
 
     public void init() {
         emptyList = new SchemeObject();
         emptyList.type = THE_EMPTY_LIST;
         falses = new SchemeObject();
         falses.type = BOOL;
+        falses.data = new SchemeData(falses.type);
         falses.data.bool.value = 0;
         trues = new SchemeObject();
         trues.type = BOOL;
+        trues.data = new SchemeData(trues.type);
         trues.data.bool.value = 1;
         symbolTable = emptyList;
         quoteSymbol = makeSymbol("quote");
@@ -58,10 +74,16 @@ public class Interpreter {
         globalEnvironment = makeEnvironment();
     }
 
-    private SchemeObject makeEnvironment() {
+    /*private SchemeObject makeEnvironment() {
         SchemeObject env = setupEnvironment();
         populateEnvironment(env);
         return env;
+    }*/
+
+    private EnvFrame makeEnvironment() {
+        EnvFrame frame = new EnvFrame();
+        populateEnvironment(frame);
+        return frame;
     }
 
     Function isNullProc;
@@ -94,7 +116,7 @@ public class Interpreter {
         }
     }
 
-    private void populateEnvironment(SchemeObject env) {
+    private void populateEnvironment(EnvFrame env) {
         addProcedure(env,"null?"      , isNullProc);
         /*
         addProcedure(env,"boolean?"   , isBooleanProc);
@@ -157,28 +179,18 @@ public class Interpreter {
         */
     }
 
-    private void addProcedure(SchemeObject env,String schemeName, Function function) {
-        defineVariable(makeSymbol(schemeName), makePrimitiveProc(function), env);
+    private void addProcedure(EnvFrame env,String schemeName, Function function) {
+        defineVariable(schemeName, makePrimitiveProc(function), env);
     }
 
-    private void defineVariable(SchemeObject var, SchemeObject val, SchemeObject env) {
-        SchemeObject frame = firstFrame(env);
-        SchemeObject vars = frameVars(frame);
-        SchemeObject vals = frameVals(frame);
-        while (!isEmptyList(vars)) {
-            if (var.equals(car(vars))) {
-                setCar(vals, val);
-                return;
-            }
-            vars = cdr(vars);
-            vals = cdr(vars);
-        }
-        addToFrame(var,val,frame);
+    private void defineVariable(String symbol, SchemeObject val, EnvFrame env) {
+        String key = symbol;
+        env.frameMap.put(key, val);
     }
 
     private void addToFrame(SchemeObject var, SchemeObject val, SchemeObject frame) {
-        setCar(frame,cons(var,car(frame)));
-        setCdr(frame, cons(val, cdr(frame)));
+        setCar(frame,var);
+        setCdr(frame, val);
     }
 
     private void setCdr(SchemeObject object, SchemeObject val) {
@@ -204,19 +216,17 @@ public class Interpreter {
     private SchemeObject makePrimitiveProc(Function function) {
         SchemeObject object = new SchemeObject();
         object.type = PRIMITIVE_PROC;
+        object.data = new SchemeData(object.type);
         object.data.primitiveProc.fu = function;
-
         return object;
     }
 
-    private SchemeObject setupEnvironment() {
-        SchemeObject initEnv = extendEnvironment(emptyList, emptyList, emptyEnvironment);
-        return initEnv;
-    }
 
-    private SchemeObject extendEnvironment(SchemeObject vars, SchemeObject vals, SchemeObject baseEnvironment) {
 
-        return cons(makeFrame(vars,vals), baseEnvironment);
+    private EnvFrame extendEnvironment(SchemeObject vars, SchemeObject vals, EnvFrame baseEnvironment) {
+        EnvFrame newFrame = new EnvFrame();
+        newFrame.nextFrame = baseEnvironment;
+        return newFrame;
     }
 
     private SchemeObject makeFrame(SchemeObject vars, SchemeObject vals) {
@@ -226,36 +236,41 @@ public class Interpreter {
     private SchemeObject makeSymbol(String s) {
         SchemeObject element = symbolTable;
         while (!isEmptyList(element)) {
-            if (s.equals(car(element).data.symbol.value)) {
-                return car(element);
+            if (element.data != null) {
+                if (s.equals(car(element).data.symbol.value)) {
+                    return car(element);
+                } else {
+                    element = cdr(element);
+                }
             }
-            element = cdr(element);
         }
         SchemeObject object = new SchemeObject();
         object.type = SYMBOL;
+        object.data = new SchemeData(object.type);
         object.data.symbol.value = s;
         symbolTable = cons(object, symbolTable);
-        return null;
+        return symbolTable;
     }
 
-    private SchemeObject cons(SchemeObject object, SchemeObject symbolTable) {
+    private SchemeObject cons(SchemeObject car, SchemeObject cdr) {
         SchemeObject newTable = new SchemeObject();
         newTable.type = PAIR;
-        newTable.data.pair.car = object;
-        newTable.data.pair.cdr = symbolTable;
+        newTable.data = new SchemeData(newTable.type);
+        newTable.data.pair.car = car;
+        newTable.data.pair.cdr = cdr;
         return newTable;
     }
 
     private SchemeObject cdr(SchemeObject element) {
-        return element.data.pair.cdr;
+        return element.data == null? null:element.data.pair.cdr;
     }
 
     private SchemeObject car(SchemeObject element) {
         return element.data.pair.car;
     }
 
-    private boolean isEmptyList(SchemeObject element) {
-        return emptyList.equals(element);
+    private boolean isEmptyList(SchemeObject object) {
+        return object.type == THE_EMPTY_LIST;
     }
 
     public static void main(String[] args) {
@@ -269,9 +284,9 @@ public class Interpreter {
         SchemeObject exp;
         while (true) {
             Tool.print("> ");
-            exp = readInput(System.in);
+            exp = readInput(new PushbackInputStream(System.in));
             if (exp == null) {
-                continue;
+                break;
             } else {
                 Tool.print(eval(exp, globalEnvironment));
                 Tool.print("\n");
@@ -279,11 +294,197 @@ public class Interpreter {
         }
     }
 
-    private String eval(SchemeObject exp, SchemeObject globalEnvironment) {
+    private SchemeObject eval(SchemeObject exp, EnvFrame env) {
+        SchemeObject procedure;
+        SchemeObject arguments;
+        if (isSymbol(exp)) {
+            return lookupVariableValue(exp, env);
+        } else if (isPair(exp)) {
+            procedure = eval(operator(exp), env);
+            arguments = listOfValues(operand(exp), env);
+            if (isPrimitiveProc(procedure)) {
+                return  procedure.data.primitiveProc.fu.accept(arguments);
+            }
+        } else if (isSelfEvaluation(exp)) {
+            return exp;
+        }
         return null;
     }
 
-    private SchemeObject readInput(InputStream in) {
+    private boolean isSelfEvaluation(SchemeObject exp) {
+        return isBoolean(exp)   ||
+                isNum(exp)    ||
+                isCharacters(exp) ||
+                isStrings(exp);
+    }
+
+    private boolean isBoolean(SchemeObject exp) {
+        return exp.type == BOOL;
+    }
+
+    private boolean isNum(SchemeObject exp) {
+        return exp.type == NUM;
+    }
+
+    private boolean isCharacters(SchemeObject exp) {
+        return exp.type == CHARACTER;
+    }
+
+    private boolean isStrings(SchemeObject exp) {
+        return exp.type == STRING;
+    }
+
+    private SchemeObject listOfValues(SchemeObject exps, EnvFrame env) {
+        if (isEmptyList(exps)) {
+            return emptyList;
+        } else {
+            return cons(eval(car(exps), env), listOfValues(cdr(exps), env));
+        }
+    }
+
+    private SchemeObject lookupVariableValue(SchemeObject object, EnvFrame env) {
+        String key = object.data.symbol.value;
+        while (env != null) {
+            if (env.frameMap.containsKey(key)) {
+                return env.frameMap.get(key);
+            }
+            env = env.nextFrame;
+        }
         return null;
+    }
+
+    private SchemeObject operand(SchemeObject object) {
+        return cdr(object);
+    }
+
+    private SchemeObject operator(SchemeObject object) {
+        return car(object);
+    }
+
+    private boolean isPrimitiveProc(SchemeObject object) {
+        return object.type == PRIMITIVE_PROC;
+    }
+
+    private boolean isPair(SchemeObject object) {
+        return object.type == PAIR;
+    }
+
+    private boolean isSymbol(SchemeObject object) {
+        return object.type == SYMBOL;
+    }
+
+    private SchemeObject readInput(PushbackInputStream inputStream) {
+        short sign = 1;
+        int index = 0;
+        int num = 0;
+        StringBuilder stringBuilder = new StringBuilder();
+        try {
+            eatWhitespace(inputStream);
+            char c = (char) inputStream.read();
+            if (c == '(') {
+                return readPair(inputStream);
+            } else if (isInitial(c) || ((c == '+' || c == '-') && isDelimiter(peek(inputStream)))) {
+                index = 0;
+                while (isInitial(c) || Character.isDigit(c) || c == '+' || c == '-') {
+                    if (index < 1000) {
+                        stringBuilder.append(c);
+                    } else {
+                        Tool.print("symbol too long.");
+                        return null;
+                    }
+                    c = (char) inputStream.read();
+                }
+                if (isDelimiter(c)) {
+                    inputStream.unread(c);
+                    return makeSymbol(stringBuilder.toString());
+                } else {
+                    Tool.print("symbol not followed by delimiter");
+                    return null;
+                }
+            } else if (Character.isDigit(c) || (c == '-' && Character.isDigit(peek(inputStream)))) {
+                if (c == '-') {
+                    sign = -1;
+                } else {
+                    inputStream.unread(c);
+                }
+                while (Character.isDigit(c = (char) inputStream.read())) {
+                    num = num * 10 + (c - '0');
+                }
+                num *= sign;
+                if (isDelimiter(c)) {
+                    inputStream.unread(c);
+                    return makeNum(num);
+                }
+            } else if (c == '\n') {
+                return null;
+            }
+        } catch (IOException e) {
+            Tool.print(e.toString());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private SchemeObject makeNum(int num) {
+        SchemeObject object = new SchemeObject();
+        object.type = NUM;
+        object.data = new SchemeData(object.type);
+        object.data.num.value = num;
+        return object;
+    }
+
+    private boolean isDelimiter(char c) {
+        return c == ' ' || c == -1 ||
+                c == '('   || c == ')' ||
+                c == '"'   || c == ';';
+    }
+
+    private char peek(PushbackInputStream inputStream) throws IOException {
+        char c = (char) inputStream.read();
+        inputStream.unread(c);
+        return c;
+    }
+
+    private boolean isInitial(char c) {
+        //char[] chars = new char[]{'*','/','>','<','=','?','!'};
+        return Character.isAlphabetic(c) || c == '*' || c == '/' || c == '>' ||
+                c == '<' || c == '=' || c == '?' || c == '!';
+    }
+
+    private SchemeObject readPair(PushbackInputStream inputStream) {
+        SchemeObject carObj = null;
+        SchemeObject cdrObj;
+        try {
+            eatWhitespace(inputStream);
+            char c = (char) inputStream.read();
+            if (c == ')') {
+                return emptyList;
+            }
+            inputStream.unread(c);
+            carObj = readInput(inputStream);
+            eatWhitespace(inputStream);
+        } catch (IOException e) {
+            Tool.print(e.toString());
+            e.printStackTrace();
+        }
+        //c = inputStream.read();
+        cdrObj = readPair(inputStream);
+        return cons(carObj,cdrObj);
+    }
+
+    private void eatWhitespace(PushbackInputStream inputStream) throws IOException {
+        char c;
+        while ((c = (char) inputStream.read()) != '\n') {
+            if (c == ' ') {
+                continue;
+            } else if (c == ';') {
+                while ((c = (char) inputStream.read()) != '\n' && c != '\n') {
+                    continue;
+                }
+            }
+            inputStream.unread(c);
+            break;
+        }
+
     }
 }
