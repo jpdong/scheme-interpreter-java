@@ -2,15 +2,15 @@ package com.dong.interpreter.data;
 
 import com.dong.interpreter.Type;
 
-public class Int implements Type<Integer> {
+public class Bool implements Type<Boolean> {
 
-    public int value;
+    public boolean value;
 
-    public Int(Integer value) {
+    public Bool(Boolean value) {
         this.value = value;
     }
 
-    public int getValue() {
+    public boolean getValue() {
         return value;
     }
 }

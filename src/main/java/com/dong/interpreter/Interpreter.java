@@ -1,12 +1,7 @@
 package com.dong.interpreter;
 
-import com.dong.interpreter.data.EnvFrame;
-import com.dong.interpreter.data.Int;
-import com.dong.interpreter.data.Node;
-import com.dong.interpreter.data.Symbol;
-import com.dong.interpreter.func.AddProc;
-import com.dong.interpreter.func.Func;
-import com.dong.interpreter.func.Procedure;
+import com.dong.interpreter.data.*;
+import com.dong.interpreter.func.*;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -63,6 +58,8 @@ public class Interpreter {
             result = String.valueOf(((Int)value).getValue());
         } else if (value instanceof Symbol) {
             result = ((Symbol) value).getValue();
+        } else if (value instanceof Bool) {
+            result = ((Bool) value).getValue()?"#t":"#f";
         }
         return result;
     }
@@ -79,14 +76,25 @@ public class Interpreter {
             return list.get(1);
         } else if ("if".equals(symbol.id)) {
             Node test = (Node) list.get(1);
-            Node trueBody = (Node) list.get(2);
-            Node falseBody = (Node) list.get(3);
-            Symbol result = (Symbol) eval(test, env);
-            if ("true".equals(result.id)) {
+            Type trueBody = list.get(2);
+            Type falseBody = list.get(3);
+            Bool result = (Bool) eval(test, env);
+            if (result.value) {
                 return eval(trueBody, env);
             } else {
                 return eval(falseBody, env);
             }
+        } else if ("let".equals(symbol.id)) {
+            Node field = (Node) list.get(1);
+            Type body = list.get(2);
+            EnvFrame extEnv = new EnvFrame(env);
+            for (int i = 0; i < field.typeList.size(); i++) {
+                Node pair = (Node) field.typeList.get(i);
+                Symbol s = (Symbol) pair.typeList.get(0);
+                Type result = eval(pair.typeList.get(1),extEnv);
+                extEnv.put(s.id, result);
+            }
+            return eval(body, extEnv);
         } else if ("define".equals(symbol.id)) {
             Symbol s = (Symbol) list.get(1);
             Type type = list.get(2);
@@ -94,7 +102,7 @@ public class Interpreter {
         } else if ("lambda".equals(symbol.id)) {
             Node parms = (Node) list.get(1);
             Node body = (Node) list.get(2);
-            return new Procedure(parms, body, env,this);
+            return new Procedure(parms, body, env, this);
         } else {
             Func<Type> proc = (Func) eval(list.get(0), env);
             List<Type> arguments = getArguments(list, env);
@@ -135,7 +143,6 @@ public class Interpreter {
             if (s.equals("(")) {
                 Node node = new Node();
                 while (!")".equals(tokens.peek())) {
-
                     node.typeList.add(readFromTokens(tokens));
                 }
                 tokens.poll();
@@ -156,7 +163,7 @@ public class Interpreter {
         }
     }
 
-    private void init() {
+    public void init() {
         globalEnvironment = makeEnvironment();
     }
 
@@ -168,25 +175,18 @@ public class Interpreter {
 
     private void initEnvironment(EnvFrame env) {
         Func addProc = new AddProc();
-        env.frameMap.put("+", addProc);
+        env.put("+", addProc);
+        Func lessProc = new LessProc();
+        env.put("<", lessProc);
+        Func subProc = new SubProc();
+        env.put("-", subProc);
+        Func multiProc = new MultiProc();
+        env.put("*", multiProc);
+        Func divisionProc = new DivisionProc();
+        env.put("/",divisionProc);
     }
 
-
-
-
-
-
-
-    /*static class Float extends Type {
-        public float value;
-
-        public Float(float value) {
-            this.value = value;
-        }
-
-        @Override
-        public Float getValue() {
-            return new Float(value);
-        }
-    }*/
+    public String testInput(String s) {
+        return listStr(eval(parse(s), globalEnvironment));
+    }
 }

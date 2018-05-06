@@ -14,10 +14,25 @@ public class EnvFrame {
         this.frameMap = new HashMap<>();
     }
 
+    public EnvFrame(EnvFrame env) {
+        this.frameMap = new HashMap<>();
+        this.nextFrame = env;
+    }
+
     public EnvFrame(Node parms, List arguments, EnvFrame env) {
         this.frameMap = new HashMap<>();
         nextFrame = env;
         updateEnv(parms, arguments);
+    }
+
+    public EnvFrame(Node field, EnvFrame envFrame) {
+        this.frameMap = new HashMap<>();
+        for (int i = 0; i < field.typeList.size(); i++) {
+            Node node = (Node) field.typeList.get(i);
+            Symbol symbol = (Symbol) node.typeList.get(0);
+            String key = symbol.id;
+
+        }
     }
 
     private void updateEnv(Node parms, List<Type> arguments) {
@@ -40,5 +55,9 @@ public class EnvFrame {
             frame = frame.nextFrame;
         }
         return null;
+    }
+
+    public void put(String key, Type data) {
+        this.frameMap.put(key, data);
     }
 }

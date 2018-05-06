@@ -5,21 +5,18 @@ import com.dong.interpreter.data.Int;
 
 import java.util.List;
 
-public class AddProc implements Func<Int> {
-
+public class MultiProc implements Func<Int> {
     @Override
     public Int accept(List<Type> arguments) {
-        int sum = 0;
+        int sum = 1;
         if (arguments instanceof List) {
             for (int i = 0; i < arguments.size(); i++) {
                 if (arguments.get(i) instanceof Int) {
                     int integer = ((Int)arguments.get(i)).getValue();
-                    sum += integer;
+                    sum *= integer;
                 }
             }
         }
         return new Int(sum);
-
     }
-
 }
