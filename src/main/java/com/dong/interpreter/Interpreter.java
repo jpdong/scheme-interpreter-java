@@ -42,7 +42,7 @@ public class Interpreter {
         } else {
             Tool.print("no such file\n");
         }
-        List<Type> asts = parseFile(result);
+        List<Type> asts = parse(result);
         Type value;
         for (Type ast : asts) {
             value = eval(ast, globalEnvironment);
@@ -63,13 +63,19 @@ public class Interpreter {
                 Tool.print("> ");
                 line = reader.readLine();
                 if (line != null) {
-                    Type ast = parse(line);
+                    /*Type ast = parseSingle(line);
                     Tool.print("ast : " + listStr(ast) + "\n");
                     value = eval(ast, globalEnvironment);
                     if (value != null) {
                         Tool.print(listStr(value) + "\n");
+                    }*/
+                    List<Type> asts = parse(line);
+                    for (Type ast : asts) {
+                        value = eval(ast, globalEnvironment);
+                        if (value != null) {
+                            Tool.print(listStr(value) + "\n");
+                        }
                     }
-
                 }
             }
         } catch (IOException e) {
@@ -154,11 +160,11 @@ public class Interpreter {
         return result;
     }
 
-    private Type parse(String program) {
+    private Type parseSingle(String program) {
         return readFromTokens(tokenize(program));
     }
 
-    private List<Type> parseFile(String program) {
+    private List<Type> parse(String program) {
         Queue<String> queue = tokenize(program);
         List<Type> astList = new ArrayList<>();
         while (!queue.isEmpty()) {
@@ -231,6 +237,6 @@ public class Interpreter {
     }
 
     public String testInput(String s) {
-        return listStr(eval(parse(s), globalEnvironment));
+        return listStr(eval(parseSingle(s), globalEnvironment));
     }
 }
