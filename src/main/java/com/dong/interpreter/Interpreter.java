@@ -3,20 +3,54 @@ package com.dong.interpreter;
 import com.dong.interpreter.data.*;
 import com.dong.interpreter.func.*;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.*;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 
 public class Interpreter {
 
     EnvFrame globalEnvironment;
 
-
     public static void main(String[] args) {
         Interpreter interpreter = new Interpreter();
         interpreter.init();
-        interpreter.start();
+        if (args == null || args.length == 0) {
+            interpreter.start();
+        } else {
+            interpreter.readCodeFromFile(args[0]);
+        }
+    }
+
+    private String readCodeFromFile(String name) {
+        File file = new File(name);
+        String result = null;
+        if (file.exists()) {
+            try {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+                StringBuilder stringBuilder = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    stringBuilder.append(line);
+                }
+                result = stringBuilder.toString();
+            } catch (IOException e) {
+                Tool.print(e.toString() + "\n");
+                e.printStackTrace();
+            }
+        } else {
+            Tool.print("no such file\n");
+        }
+        List<Type> asts = parseFile(result);
+        Type value;
+        for (Type ast : asts) {
+            value = eval(ast, globalEnvironment);
+            if (value != null) {
+                Tool.print(listStr(value) + "\n");
+            }
+        }
+        return result;
     }
 
     private void start() {
@@ -31,14 +65,15 @@ public class Interpreter {
                 if (line != null) {
                     Type ast = parse(line);
                     Tool.print("ast : " + listStr(ast) + "\n");
-                    value = eval(ast,globalEnvironment);
+                    value = eval(ast, globalEnvironment);
                     if (value != null) {
                         Tool.print(listStr(value) + "\n");
                     }
+
                 }
             }
         } catch (IOException e) {
-            Tool.print(e.toString()+"\n");
+            Tool.print(e.toString() + "\n");
             e.printStackTrace();
         }
     }
@@ -54,17 +89,17 @@ public class Interpreter {
             stringBuilder.deleteCharAt(stringBuilder.length() - 1);
             stringBuilder.append(")");
             result = stringBuilder.toString();
-        } else if (value instanceof Int){
-            result = String.valueOf(((Int)value).getValue());
+        } else if (value instanceof Int) {
+            result = String.valueOf(((Int) value).getValue());
         } else if (value instanceof Symbol) {
             result = ((Symbol) value).getValue();
         } else if (value instanceof Bool) {
-            result = ((Bool) value).getValue()?"#t":"#f";
+            result = ((Bool) value).getValue() ? "#t" : "#f";
         }
         return result;
     }
 
-    public Type eval(Type ast,EnvFrame env) {
+    public Type eval(Type ast, EnvFrame env) {
         if (ast instanceof Symbol) {
             return env.lookupSymbol(((Symbol) ast).getValue());
         } else if (!(ast instanceof Node)) {
@@ -91,7 +126,7 @@ public class Interpreter {
             for (int i = 0; i < field.typeList.size(); i++) {
                 Node pair = (Node) field.typeList.get(i);
                 Symbol s = (Symbol) pair.typeList.get(0);
-                Type result = eval(pair.typeList.get(1),extEnv);
+                Type result = eval(pair.typeList.get(1), extEnv);
                 extEnv.put(s.id, result);
             }
             return eval(body, extEnv);
@@ -121,6 +156,15 @@ public class Interpreter {
 
     private Type parse(String program) {
         return readFromTokens(tokenize(program));
+    }
+
+    private List<Type> parseFile(String program) {
+        Queue<String> queue = tokenize(program);
+        List<Type> astList = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            astList.add(readFromTokens(queue));
+        }
+        return astList;
     }
 
     private Queue<String> tokenize(String s) {
@@ -183,7 +227,7 @@ public class Interpreter {
         Func multiProc = new MultiProc();
         env.put("*", multiProc);
         Func divisionProc = new DivisionProc();
-        env.put("/",divisionProc);
+        env.put("/", divisionProc);
     }
 
     public String testInput(String s) {
