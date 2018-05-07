@@ -5,7 +5,7 @@ import com.dong.interpreter.data.Int;
 
 import java.util.List;
 
-public class AddProc implements Func<Int> {
+public class AddProc extends Func<Int> {
 
     @Override
     public Int accept(List<Type> arguments) {

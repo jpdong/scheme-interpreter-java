@@ -54,5 +54,30 @@ public class TestInput {
         Assert.assertEquals("2",interpreter.testInput("( let ((x 1 )) (+ x 1))"));
         Assert.assertEquals("3",interpreter.testInput("( let ((x 1 ) (y 2)) (+ x y))"));
         Assert.assertEquals("4",interpreter.testInput("( let ((x 1 ) (y (+ x 2))) (+ x y))"));
+        Assert.assertEquals(null,interpreter.testInput("(define a 1)"));
+        Assert.assertEquals(null,interpreter.testInput("(define b 10)"));
+        Assert.assertEquals("20",interpreter.testInput("(let ((a 10)) (+ a b))"));
+    }
+
+    @Test
+    public void TestList() {
+        interpreter.init();
+        Assert.assertEquals("(1 2 3)",interpreter.testInput("(list 1 2 3)"));
+        Assert.assertEquals("((1 2) (3 4))",interpreter.testInput("(list (quote (1 2)) (quote (3 4)))"));
+    }
+
+    @Test
+    public void TestCar() {
+        interpreter.init();
+        Assert.assertEquals("1",interpreter.testInput("(car (list 1 2 3))"));
+        Assert.assertEquals("(1 2)",interpreter.testInput("(car (cons (cons 1 2) 3))"));
+    }
+
+    @Test
+    public void TestCdr() {
+        interpreter.init();
+        Assert.assertEquals("(2 3)",interpreter.testInput("(cdr (list 1 2 3))"));
+        Assert.assertEquals("3",interpreter.testInput("(cdr (cons (cons 1 2) 3))"));
+        //(define f (lambda (x) (if (< x 1) x (f (- x 1)))))
     }
 }

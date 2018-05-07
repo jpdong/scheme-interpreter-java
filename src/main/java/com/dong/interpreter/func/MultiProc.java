@@ -5,7 +5,7 @@ import com.dong.interpreter.data.Int;
 
 import java.util.List;
 
-public class MultiProc implements Func<Int> {
+public class MultiProc extends Func<Int> {
     @Override
     public Int accept(List<Type> arguments) {
         int sum = 1;

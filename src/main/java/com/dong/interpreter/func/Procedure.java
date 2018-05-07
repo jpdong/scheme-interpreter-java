@@ -7,7 +7,7 @@ import com.dong.interpreter.data.Node;
 
 import java.util.List;
 
-public class Procedure implements Func<Type> {
+public class Procedure extends Func<Type> {
     Node parms;
     Node body;
     EnvFrame env;
@@ -22,6 +22,11 @@ public class Procedure implements Func<Type> {
 
     @Override
     public Type accept(List arguments) {
-        return interpreter.eval(body,new EnvFrame(parms, arguments,env));
+        return interpreter.evalNR(body,new EnvFrame(parms, arguments,env));
+    }
+
+    @Override
+    public void accept(List<Type> arguments, Result result, EnvFrame env) {
+        result.value = interpreter.evalNR(body,new EnvFrame(parms, arguments,env));
     }
 }

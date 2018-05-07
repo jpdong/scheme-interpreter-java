@@ -5,7 +5,7 @@ import com.dong.interpreter.data.Int;
 
 import java.util.List;
 
-public class DivisionProc implements Func<Int> {
+public class DivisionProc extends Func<Int> {
     @Override
     public Int accept(List<Type> arguments) {
         if (arguments.size() > 2) {

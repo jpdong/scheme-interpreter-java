@@ -12,6 +12,7 @@ import java.util.Queue;
 public class Interpreter {
 
     EnvFrame globalEnvironment;
+    int countEval = 0;
 
     public static void main(String[] args) {
         Interpreter interpreter = new Interpreter();
@@ -61,6 +62,7 @@ public class Interpreter {
         try {
             while (true) {
                 Tool.print("> ");
+                countEval = 0;
                 line = reader.readLine();
                 if (line != null) {
                     /*Type ast = parseSingle(line);
@@ -71,7 +73,7 @@ public class Interpreter {
                     }*/
                     List<Type> asts = parse(line);
                     for (Type ast : asts) {
-                        value = eval(ast, globalEnvironment);
+                        value = evalNR(ast, globalEnvironment);
                         if (value != null) {
                             Tool.print(listStr(value) + "\n");
                         }
@@ -105,7 +107,65 @@ public class Interpreter {
         return result;
     }
 
+    public Type evalNR(Type ast, EnvFrame env) {
+        Tool.print("evalNR " + ++countEval + "\n");
+        while (true) {
+            if (ast instanceof Symbol) {
+                return env.lookupSymbol(((Symbol) ast).getValue());
+            } else if (!(ast instanceof Node)) {
+                return ast;
+            }
+            List<Type> list = ((Node) ast).typeList;
+            Symbol symbol = (Symbol) list.get(0);
+            if ("quote".equals(symbol.id)) {
+                return list.get(1);
+            } else if ("if".equals(symbol.id)) {
+                Node test = (Node) list.get(1);
+                Type trueBody = list.get(2);
+                Type falseBody = list.get(3);
+                Bool result = (Bool) evalNR(test, env);
+                if (result.value) {
+                    ast = trueBody;
+                    continue;
+                } else {
+                    ast = falseBody;
+                    continue;
+                }
+            } else if ("let".equals(symbol.id)) {
+                Node field = (Node) list.get(1);
+                Type body = list.get(2);
+                EnvFrame extEnv = new EnvFrame(env);
+                for (int i = 0; i < field.typeList.size(); i++) {
+                    Node pair = (Node) field.typeList.get(i);
+                    Symbol s = (Symbol) pair.typeList.get(0);
+                    Type result = evalNR(pair.typeList.get(1), extEnv);
+                    extEnv.put(s.id, result);
+                }
+                ast = body;
+                env = extEnv;
+                continue;
+            } else if ("define".equals(symbol.id)) {
+                Symbol s = (Symbol) list.get(1);
+                Type type = list.get(2);
+                env.frameMap.put(s.id, evalNR(type, env));
+                break;
+            } else if ("lambda".equals(symbol.id)) {
+                Node parms = (Node) list.get(1);
+                Node body = (Node) list.get(2);
+                return new Procedure(parms, body, env, this);
+            } else {
+                Func<Type> proc = (Func) evalNR(list.get(0), env);
+                List<Type> arguments = getArguments(list, env);
+                Result result = new Result();
+                proc.accept(arguments, result, env);
+                return result.value;
+            }
+        }
+        return null;
+    }
+
     public Type eval(Type ast, EnvFrame env) {
+        Tool.print("eval " + ++countEval + "\n");
         if (ast instanceof Symbol) {
             return env.lookupSymbol(((Symbol) ast).getValue());
         } else if (!(ast instanceof Node)) {
@@ -147,7 +207,9 @@ public class Interpreter {
         } else {
             Func<Type> proc = (Func) eval(list.get(0), env);
             List<Type> arguments = getArguments(list, env);
-            return proc.accept(arguments);
+            Result result = new Result();
+            proc.accept(arguments, result, env);
+            return result.value;
         }
         return null;
     }
@@ -155,7 +217,7 @@ public class Interpreter {
     private List<Type> getArguments(List<Type> list, EnvFrame env) {
         List<Type> result = new ArrayList<>();
         for (int i = 1; i < list.size(); i++) {
-            result.add(eval(list.get(i), env));
+            result.add(evalNR(list.get(i), env));
         }
         return result;
     }
@@ -226,14 +288,23 @@ public class Interpreter {
     private void initEnvironment(EnvFrame env) {
         Func addProc = new AddProc();
         env.put("+", addProc);
-        Func lessProc = new LessProc();
+        Func lessProc = new LessProc(this);
         env.put("<", lessProc);
         Func subProc = new SubProc();
+        //Func subProc = (a) -> {return a;};
         env.put("-", subProc);
         Func multiProc = new MultiProc();
         env.put("*", multiProc);
         Func divisionProc = new DivisionProc();
         env.put("/", divisionProc);
+        Func consProc = new ConsProc();
+        env.put("cons",consProc);
+        Func carProc = new CarProc();
+        env.put("car", carProc);
+        Func cdrProc = new CdrProc();
+        env.put("cdr", cdrProc);
+        Func listProc = new ListProc();
+        env.put("list", listProc);
     }
 
     public String testInput(String s) {
