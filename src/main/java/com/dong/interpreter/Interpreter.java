@@ -12,7 +12,7 @@ import java.util.Queue;
 public class Interpreter {
 
     EnvFrame globalEnvironment;
-    int countEval = 0;
+    //int countEval = 0;
 
     public static void main(String[] args) {
         Interpreter interpreter = new Interpreter();
@@ -62,7 +62,7 @@ public class Interpreter {
         try {
             while (true) {
                 Tool.print("> ");
-                countEval = 0;
+                //countEval = 0;
                 line = reader.readLine();
                 if (line != null) {
                     /*Type ast = parseSingle(line);
@@ -86,7 +86,7 @@ public class Interpreter {
         }
     }
 
-    private String listStr(Type value) {
+    public String listStr(Type value) {
         String result = null;
         StringBuilder stringBuilder = new StringBuilder();
         if (value instanceof Node) {
@@ -103,12 +103,16 @@ public class Interpreter {
             result = ((Symbol) value).getValue();
         } else if (value instanceof Bool) {
             result = ((Bool) value).getValue() ? "#t" : "#f";
+        } else if (value instanceof Char) {
+            result = String.valueOf(((Char)value).getValue());
+        } else if (value instanceof Str) {
+            result = ((Str) value).getValue();
         }
         return result;
     }
 
     public Type evalNR(Type ast, EnvFrame env) {
-        Tool.print("evalNR " + ++countEval + "\n");
+        //Tool.print("evalNR " + ++countEval + "\n");
         while (true) {
             if (ast instanceof Symbol) {
                 return env.lookupSymbol(((Symbol) ast).getValue());
@@ -153,19 +157,36 @@ public class Interpreter {
                 Node parms = (Node) list.get(1);
                 Node body = (Node) list.get(2);
                 return new Procedure(parms, body, env, this);
+            }  else if ("cond".equals(symbol.id)) {
+                Node elseCase = (Node) list.get(list.size() - 1);
+                Symbol elseTag = (Symbol) elseCase.typeList.get(0);
+                if (!"else".equals(elseTag.id)) {
+                    throw new RuntimeException("wrong cond case");
+                }
+                Type tempAst = elseCase.typeList.get(1);
+                for (int i = 1; i < list.size() - 1; i++) {
+                    Node currentCase = (Node) list.get(i);
+                    Type predicate = currentCase.typeList.get(0);
+                    if (((Bool) evalNR(predicate, env)).value) {
+                        tempAst = currentCase.typeList.get(1);
+                        break;
+                    }
+                }
+                ast = tempAst;
+                continue;
             } else {
                 Func<Type> proc = (Func) evalNR(list.get(0), env);
                 List<Type> arguments = getArguments(list, env);
-                Result result = new Result();
-                proc.accept(arguments, result, env);
-                return result.value;
+                //Result result = new Result();
+                //proc.accept(arguments, result, env);
+                return proc.accept(arguments);
             }
         }
         return null;
     }
 
     public Type eval(Type ast, EnvFrame env) {
-        Tool.print("eval " + ++countEval + "\n");
+        //Tool.print("eval " + ++countEval + "\n");
         if (ast instanceof Symbol) {
             return env.lookupSymbol(((Symbol) ast).getValue());
         } else if (!(ast instanceof Node)) {
@@ -204,12 +225,13 @@ public class Interpreter {
             Node parms = (Node) list.get(1);
             Node body = (Node) list.get(2);
             return new Procedure(parms, body, env, this);
+        } else if ("cond".equals(symbol.id)) {
+
         } else {
             Func<Type> proc = (Func) eval(list.get(0), env);
             List<Type> arguments = getArguments(list, env);
-            Result result = new Result();
-            proc.accept(arguments, result, env);
-            return result.value;
+            //Result result = new Result();
+            return proc.accept(arguments);
         }
         return null;
     }
@@ -249,7 +271,7 @@ public class Interpreter {
 
     private Type readFromTokens(Queue<String> tokens) {
         if (tokens.isEmpty()) {
-            throw new RuntimeException("unexpected EOF while reading");
+            throw new RuntimeException("unexpected end while reading");
         } else {
             String s = tokens.poll();
             if (s.equals("(")) {
@@ -268,11 +290,24 @@ public class Interpreter {
     }
 
     private Type atom(String s) {
+        if (isMatchChar(s)) {
+            return new Char(s.charAt(2));
+        } else if (isMatchString(s)) {
+            return new Str(s.substring(1,s.length()-1));
+        }
         try {
             return new Int(Integer.valueOf(s));
         } catch (NumberFormatException e) {
             return new Symbol(s);
         }
+    }
+
+    private boolean isMatchString(String s) {
+        return s.charAt(0)=='"' && s.charAt(s.length() -1) == '"';
+    }
+
+    private boolean isMatchChar(String content) {
+        return content.charAt(0) == '#' && content.charAt(1) == '\\';
     }
 
     public void init() {
@@ -286,13 +321,23 @@ public class Interpreter {
     }
 
     private void initEnvironment(EnvFrame env) {
+        Func lessThanProc = new LessThanProc(this);
+        env.put("<", lessThanProc);
+        Func lessEqualProc = new LessEqualProc();
+        env.put("<=", lessEqualProc);
+        Func moreEqualProc = new MoreEqualProc();
+        env.put(">=", moreEqualProc);
+        Func moreThanProc = new MoreThanProc();
+        env.put(">", moreThanProc);
+        Func equalThanProc = new EqualThanProc();
+        env.put("=", equalThanProc);
+
+
         Func addProc = new AddProc();
         env.put("+", addProc);
-        Func lessProc = new LessProc(this);
-        env.put("<", lessProc);
         Func subProc = new SubProc();
         //Func subProc = (a) -> {return a;};
-        env.put("-", subProc);
+        env.put("-",subProc);
         Func multiProc = new MultiProc();
         env.put("*", multiProc);
         Func divisionProc = new DivisionProc();
@@ -305,9 +350,11 @@ public class Interpreter {
         env.put("cdr", cdrProc);
         Func listProc = new ListProc();
         env.put("list", listProc);
+        Func displayProc = new DisplayProc(this);
+        env.put("display",displayProc);
     }
 
     public String testInput(String s) {
-        return listStr(eval(parseSingle(s), globalEnvironment));
+        return listStr(evalNR(parseSingle(s), globalEnvironment));
     }
 }

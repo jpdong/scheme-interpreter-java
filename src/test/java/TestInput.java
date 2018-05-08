@@ -7,10 +7,38 @@ public class TestInput {
     Interpreter interpreter = new Interpreter();
 
     @Test
-    public void TestLessProc() {
+    public void TestLessThanProc() {
         interpreter.init();
         Assert.assertEquals("#t",interpreter.testInput("( < 1 2)"));
         Assert.assertEquals("#f",interpreter.testInput("( < 3 2)"));
+    }
+
+    @Test
+    public void TestLessEqualProc() {
+        interpreter.init();
+        Assert.assertEquals("#t",interpreter.testInput("( <= 1 2)"));
+        Assert.assertEquals("#t",interpreter.testInput("( <= 2 2)"));
+    }
+
+    @Test
+    public void TestMoreThanProc() {
+        interpreter.init();
+        Assert.assertEquals("#f",interpreter.testInput("( > 1 2)"));
+        Assert.assertEquals("#t",interpreter.testInput("( > 3 2)"));
+    }
+
+    @Test
+    public void TestMoreEqualProc() {
+        interpreter.init();
+        Assert.assertEquals("#f",interpreter.testInput("( >= 1 2)"));
+        Assert.assertEquals("#t",interpreter.testInput("( >= 2 2)"));
+    }
+
+    @Test
+    public void TestEqualThanProc() {
+        interpreter.init();
+        Assert.assertEquals("#f",interpreter.testInput("( = 1 2)"));
+        Assert.assertEquals("#t",interpreter.testInput("( = 2 2)"));
     }
 
     @Test
@@ -79,5 +107,18 @@ public class TestInput {
         Assert.assertEquals("(2 3)",interpreter.testInput("(cdr (list 1 2 3))"));
         Assert.assertEquals("3",interpreter.testInput("(cdr (cons (cons 1 2) 3))"));
         //(define f (lambda (x) (if (< x 1) x (f (- x 1)))))
+    }
+
+    @Test
+    public void TestCond() {
+        interpreter.init();
+        Assert.assertEquals("1",interpreter.testInput("(cond ((< 3 2) 3)((< 1 2) 1)(else 0))"));
+    }
+
+    @Test
+    public void TestChar() {
+        interpreter.init();
+        Assert.assertEquals(null,interpreter.testInput("(define a #\\a)"));
+        Assert.assertEquals(null,interpreter.testInput("(define a #\\a)"));
     }
 }

@@ -8,11 +8,11 @@ import com.dong.interpreter.data.Int;
 
 import java.util.List;
 
-public class LessProc extends Func<Bool> {
+public class LessThanProc extends Func<Bool> {
 
     Interpreter interpreter;
 
-    public LessProc(Interpreter interpreter) {
+    public LessThanProc(Interpreter interpreter) {
         this.interpreter = interpreter;
     }
 
