@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.regex.Pattern;
 
 public class Interpreter {
 
@@ -303,11 +304,13 @@ public class Interpreter {
     }
 
     private boolean isMatchString(String s) {
-        return s.charAt(0)=='"' && s.charAt(s.length() -1) == '"';
+        //return s.charAt(0)=='"' && s.charAt(s.length() -1) == '"';
+        return Pattern.matches("\"\\w*\"",s);
     }
 
     private boolean isMatchChar(String content) {
-        return content.charAt(0) == '#' && content.charAt(1) == '\\';
+        //return content.charAt(0) == '#' && content.charAt(1) == '\\';
+        return Pattern.matches("#\\\\.", content);
     }
 
     public void init() {

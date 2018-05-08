@@ -118,7 +118,7 @@ public class TestInput {
     @Test
     public void TestChar() {
         interpreter.init();
-        Assert.assertEquals(null,interpreter.testInput("(define a #\\a)"));
+        Assert.assertEquals(null,interpreter.testInput("(define a #\\b)"));
         Assert.assertEquals(null,interpreter.testInput("(define a #\\a)"));
     }
 }
